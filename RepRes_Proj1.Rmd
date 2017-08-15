@@ -1,0 +1,108 @@
+---
+title: "Reproducible Research: Course Project 1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Read in the .csv file.
+
+```{r}
+data <- read.csv("activity.csv", colClasses = c("numeric", "character", "integer"))
+```
+
+Format date and group data by day using group_by function in dyplr
+
+```{r}
+library(dplyr)
+totsteps <- data %>%
+filter(!is.na(steps)) %>%
+group_by(date) %>%
+summarize(steps = sum(steps))
+```
+
+Plot histogram of total steps per day
+
+```{r}
+hist(totsteps$steps, breaks=20, xlab='steps per day' )
+dev.copy(png, file="plot_step2.png", width=480, height=480)
+dev.off()
+
+```
+
+Calculate mean and median steps
+
+```{r}
+median(totsteps$steps)
+mean(totsteps$steps)
+```
+
+Group data by interval and calcaulate average number of steps
+
+```{r}
+int <- data %>%
+filter(!is.na(steps)) %>%
+group_by(interval) %>%
+summarize(steps = mean(steps))
+```
+
+Plot steps taken as function of interval
+
+```{r}
+plot(int)
+dev.copy(png, file="plot_step4.png", width=480, height=480)
+dev.off()
+
+```
+
+Find the interval where the maximum steps are taken, on average
+
+```{r}
+int[which.max(int$steps),]
+```
+
+Replace missing values with average number of steps per interval, and print total number of missing values
+
+```{r}
+alldata <- data
+miss <- is.na(alldata$steps)
+print(sum(miss))
+avgval <- tapply(alldata$steps, alldata$interval, mean, na.rm=TRUE, simplify=TRUE)
+alldata$steps[miss] <- avgval[as.character(alldata$interval[miss])]
+```
+
+Group by date again, and plot new histogram with imputed data included
+
+```{r}
+totsteps2 <- alldata %>%
+filter(!is.na(steps)) %>%
+group_by(date) %>%
+summarize(steps = sum(steps))
+
+hist(totsteps2$steps, breaks=20, xlab='steps per day (missing data replaced with average)')
+dev.copy(png, file="plot_step7.png", width=480, height=480)
+dev.off()
+
+```
+
+Select data from Saturday, Sunday
+
+```{r}
+library(lubridate)
+alldata <- mutate(alldata, weekendorday = ifelse(weekdays(ymd(alldata$date)) == "Saturday" | weekdays(ymd(alldata$date)) == "Sunday", "Weekends", "Weekdays"))
+alldata$weekendorday <- as.factor(alldata$weekendorday)
+```
+
+```{r}
+interval_full <- alldata %>% group_by(interval, weekendorday) %>% summarise(steps = mean(steps))
+library(ggplot2)
+pp <- ggplot(interval_full, aes(x=interval, y=steps, color = weekendorday)) +
+  geom_line() +
+  facet_wrap(~weekendorday, ncol = 2, nrow=1)
+print(pp)
+dev.copy(png, file="plot_step8.png", width=480, height=480)
+dev.off()
+
+```
